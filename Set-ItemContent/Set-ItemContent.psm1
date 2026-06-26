@@ -33,9 +33,19 @@ function Set-ItemContent {
         }
 
         l "getting access token from ms graph"
-        #convert tokenbody from config into hashtable for body
-        $tokenbody = $graphcfg.tokenBody.psobject.properties | ForEach-Object -begin { $h = @{} } -process { $h."$($_.Name)" = $_.Value } -end { $h }
-        $tokenresponse = Invoke-RestMethod -Uri $graphcfg.tokenURL -Method POST -Body $tokenbody
+        if ($graphcfg.tokenBody.client_secret) {
+            # app registration + client secret (the original path)
+            #convert tokenbody from config into hashtable for body
+            $tokenbody = $graphcfg.tokenBody.psobject.properties | ForEach-Object -begin { $h = @{} } -process { $h."$($_.Name)" = $_.Value } -end { $h }
+            $tokenresponse = Invoke-RestMethod -Uri $graphcfg.tokenURL -Method POST -Body $tokenbody
+        }
+        else {
+            # no client_secret in config: use the App Service / Functions managed identity (nothing to rotate)
+            l "no client_secret in config, acquiring token via managed identity"
+            $resource = if ($graphcfg.resource) { $graphcfg.resource } else { 'https://graph.microsoft.com' }
+            $miUri = "$($env:IDENTITY_ENDPOINT)?resource=$resource&api-version=2019-08-01"
+            $tokenresponse = Invoke-RestMethod -Uri $miUri -Method GET -Headers @{ 'X-IDENTITY-HEADER' = $env:IDENTITY_HEADER }
+        }
         $token = $tokenresponse.access_token
 
         if (-not $token) {
