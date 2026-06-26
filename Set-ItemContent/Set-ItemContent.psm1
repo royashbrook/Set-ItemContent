@@ -52,9 +52,8 @@ function Set-ItemContent {
             l "unable to acquire token, terminating process"
             return
         }
-        l "tokenresponse:"
-        $tokenresponse | convertto-json
-        
+        l "token acquired"
+
         l "uploading file"
         $uploadresponse = Invoke-RestMethod -Headers @{Authorization = "Bearer $($token)" } -Uri $graphcfg.uploadURL -Method Put -Body $body -ContentType "application/zip"
 
